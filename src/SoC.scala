@@ -8,6 +8,7 @@ import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.util._
 import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.system.SimAXIMem
 
 object AXI4SlavePortParametersGenerator {
   def apply(params: MasterPortParams, base: BigInt, size: BigInt) =
@@ -87,5 +88,45 @@ class ysyxSoCASIC(implicit p: Parameters) extends LazyModule {
     List((spi, spiNode), (uart, uartNode)).map { case (io, node) =>
       (io zip node.in) foreach { case (io, (bundle, _)) => io <> bundle }
     }
+  }
+}
+
+class ysyxSoCFPGA(implicit p: Parameters) extends ChipLinkSlave
+
+
+class ysyxSoCFull(implicit p: Parameters) extends LazyModule {
+  val asic = LazyModule(new ysyxSoCASIC)
+
+  override lazy val module = new Impl
+  class Impl extends LazyModuleImp(this) with DontTouch {
+    val masic = asic.module
+    val fpga = LazyModule(new ysyxSoCFPGA)
+    val mfpga = Module(fpga.module)
+
+    masic.fpga_io.b2c <> mfpga.fpga_io.c2b
+    mfpga.fpga_io.b2c <> masic.fpga_io.c2b
+
+    (fpga.master_mem zip fpga.axi4MasterMemNode.in).map { case (io, (_, edge)) =>
+      val mem = LazyModule(new SimAXIMem(edge,
+        base = ChipLinkParam.mem.base, size = ChipLinkParam.mem.mask + 1))
+      Module(mem.module)
+      mem.io_axi4.head <> io
+    }
+
+    fpga.master_mmio.map(_ := DontCare)
+    fpga.slave.map(_ := DontCare)
+
+    val cpu_mem  = IO(chiselTypeOf(asic.module.cpu_mem))
+    val cpu_mmio = IO(chiselTypeOf(asic.module.cpu_mmio))
+    val cpu_dma  = IO(chiselTypeOf(asic.module.cpu_dma))
+//    soc.module.cpu_master <> cpu_master
+    asic.module.cpu_mem <> cpu_mem
+    asic.module.cpu_mmio <> cpu_mmio
+    cpu_dma <> asic.module.cpu_dma
+
+    val spi  = IO(chiselTypeOf(asic.module.spi))
+    val uart = IO(chiselTypeOf(asic.module.uart))
+    spi  <> asic.module.spi
+    uart <> asic.module.uart
   }
 }

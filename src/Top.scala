@@ -9,7 +9,7 @@ class ysyxSoCTop extends Module {
   implicit val config: Parameters = new DefaultConfig
 
   val io = IO(new Bundle { })
-  val dut = LazyModule(new ysyxSoCASIC)
+  val dut = LazyModule(new ysyxSoCFull)
   val mdut = Module(dut.module)
   mdut.dontTouchPorts()
   mdut.cpu_mem := DontCare
@@ -17,9 +17,9 @@ class ysyxSoCTop extends Module {
   mdut.cpu_dma := DontCare
   mdut.spi.foreach(_ := DontCare)
   mdut.uart.foreach(_ := DontCare)
-  mdut.fpga_io.b2c := DontCare
 }
 
 object Elaborate extends App {
-  circt.stage.ChiselStage.emitSystemVerilogFile(new ysyxSoCTop, args)
+  val firtoolOptions = Array("--disable-annotation-unknown")
+  circt.stage.ChiselStage.emitSystemVerilogFile(new ysyxSoCTop, args, firtoolOptions)
 }
