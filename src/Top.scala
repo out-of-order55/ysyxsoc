@@ -9,12 +9,14 @@ class ysyxSoCTop extends Module {
   implicit val config: Parameters = new DefaultConfig
 
   val io = IO(new Bundle { })
-  val dut = LazyModule(new ChipLinkSlave)
+  val dut = LazyModule(new ysyxSoCASIC)
   val mdut = Module(dut.module)
   mdut.dontTouchPorts()
-  dut.slave.map(_ := DontCare)
-  dut.master_mmio.map(_ := DontCare)
-  dut.master_mem.map(_ := DontCare)
+  mdut.cpu_mem := DontCare
+  mdut.cpu_mmio.foreach(_ := DontCare)
+  mdut.cpu_dma := DontCare
+  mdut.spi.foreach(_ := DontCare)
+  mdut.uart.foreach(_ := DontCare)
   mdut.fpga_io.b2c := DontCare
 }
 
