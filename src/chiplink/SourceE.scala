@@ -1,17 +1,17 @@
 // See LICENSE for license details.
 package sifive.blocks.devices.chiplink
 
-import Chisel.{defaultCompileOptions => _, _}
-import freechips.rocketchip.util.CompileOptions.NotStrictInferReset
+import chisel3._
+import chisel3.util._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
 
 class SourceE(info: ChipLinkInfo) extends Module
 {
-  val io = new Bundle {
+  val io = IO(new Bundle {
     val e = Decoupled(new TLBundleE(info.edgeOut.bundle))
-    val q = Decoupled(UInt(width = info.params.dataBits)).flip
-  }
+    val q = Flipped(Decoupled(UInt(info.params.dataBits.W)))
+  })
 
   // Extract header fields
   val Seq(_, _, _, _, _, q_sink) = info.decode(io.q.bits)

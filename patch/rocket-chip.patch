@@ -1,0 +1,297 @@
+diff --git a/src/main/resources/META-INF/services/firrtl.options.RegisteredLibrary b/src/main/resources/META-INF/services/firrtl.options.RegisteredLibrary
+index abfcceb05..e69de29bb 100644
+--- a/src/main/resources/META-INF/services/firrtl.options.RegisteredLibrary
++++ b/src/main/resources/META-INF/services/firrtl.options.RegisteredLibrary
+@@ -1 +0,0 @@
+-firrtl.passes.memlib.MemLibOptions
+diff --git a/src/main/scala/diplomacy/BundleBridge.scala b/src/main/scala/diplomacy/BundleBridge.scala
+index e02d6f4f9..0e2eef8ba 100644
+--- a/src/main/scala/diplomacy/BundleBridge.scala
++++ b/src/main/scala/diplomacy/BundleBridge.scala
+@@ -3,8 +3,9 @@
+ package freechips.rocketchip.diplomacy
+ 
+ import chisel3._
+-import chisel3.experimental.{DataMirror, SourceInfo}
+-import chisel3.experimental.DataMirror.internal.chiselTypeClone
++import chisel3.experimental.SourceInfo
++import chisel3.reflect.DataMirror
++import chisel3.reflect.DataMirror.internal.chiselTypeClone
+ import org.chipsalliance.cde.config.Parameters
+ import freechips.rocketchip.util.DataToAugmentedData
+ 
+diff --git a/src/main/scala/diplomacy/LazyModule.scala b/src/main/scala/diplomacy/LazyModule.scala
+index 5f4da46cb..418873331 100644
+--- a/src/main/scala/diplomacy/LazyModule.scala
++++ b/src/main/scala/diplomacy/LazyModule.scala
+@@ -3,7 +3,7 @@
+ package freechips.rocketchip.diplomacy
+ 
+ import chisel3._
+-import chisel3.internal.sourceinfo.{SourceInfo, UnlocatableSourceInfo}
++import chisel3.experimental.{SourceInfo, UnlocatableSourceInfo}
+ import chisel3.{Module, RawModule, Reset, withClockAndReset}
+ import chisel3.experimental.{ChiselAnnotation, CloneModuleAsRecord}
+ import firrtl.passes.InlineAnnotation
+diff --git a/src/main/scala/groundtest/TraceGen.scala b/src/main/scala/groundtest/TraceGen.scala
+index 5c5cba9b5..05f6e0029 100644
+--- a/src/main/scala/groundtest/TraceGen.scala
++++ b/src/main/scala/groundtest/TraceGen.scala
+@@ -186,7 +186,7 @@ class TagMan(val logNumTags : Int) extends Module {
+   io.tagOut := nextTag
+ 
+   // Is the next tag available?
+-  io.available := ~MuxLookup(nextTag, true.B, inUseMap)
++  io.available := ~MuxLookup(nextTag, true.B)(inUseMap)
+ 
+   // When user takes a tag
+   when (io.take) {
+@@ -249,7 +249,7 @@ class TraceGenerator(val params: TraceGenParams)(implicit val p: Parameters) ext
+   val addrBagIndices = (0 to addressBagLen-1).
+                     map(i => i.U(logAddressBagLen.W))
+ 
+-  val randAddrFromBag = MuxLookup(randAddrBagIndex, 0.U,
++  val randAddrFromBag = MuxLookup(randAddrBagIndex, 0.U)(
+                           addrBagIndices.zip(bagOfAddrs))
+ 
+   // Random address from the address bag or the extra addresses.
+@@ -268,7 +268,7 @@ class TraceGenerator(val params: TraceGenParams)(implicit val p: Parameters) ext
+ 
+           // A random address from the extra addresses.
+           val randAddrFromExtra = Cat(0.U,
+-                MuxLookup(randExtraAddrIndex, 0.U,
++                MuxLookup(randExtraAddrIndex, 0.U)(
+                   extraAddrIndices.zip(extraAddrs)), 0.U(3.W))
+ 
+           Frequency(List(
+@@ -279,7 +279,7 @@ class TraceGenerator(val params: TraceGenParams)(implicit val p: Parameters) ext
+   val allAddrs = extraAddrs ++ bagOfAddrs
+   val allAddrIndices = (0 until totalNumAddrs)
+     .map(i => i.U(log2Ceil(totalNumAddrs).W))
+-  val initAddr = MuxLookup(initCount, 0.U,
++  val initAddr = MuxLookup(initCount, 0.U)(
+     allAddrIndices.zip(allAddrs))
+ 
+   // Random opcodes
+diff --git a/src/main/scala/jtag/JtagShifter.scala b/src/main/scala/jtag/JtagShifter.scala
+index 69f6d1272..d76ac3535 100644
+--- a/src/main/scala/jtag/JtagShifter.scala
++++ b/src/main/scala/jtag/JtagShifter.scala
+@@ -3,7 +3,7 @@
+ package freechips.rocketchip.jtag
+ 
+ import chisel3._
+-import chisel3.experimental.DataMirror
++import chisel3.reflect.DataMirror
+ import chisel3.internal.firrtl.KnownWidth
+ import chisel3.util.{Cat, Valid}
+ 
+diff --git a/src/main/scala/rocket/BTB.scala b/src/main/scala/rocket/BTB.scala
+index 25b5b359d..75126dd12 100644
+--- a/src/main/scala/rocket/BTB.scala
++++ b/src/main/scala/rocket/BTB.scala
+@@ -5,7 +5,6 @@ package freechips.rocketchip.rocket
+ 
+ import chisel3._
+ import chisel3.util._
+-import chisel3.internal.InstanceId
+ import org.chipsalliance.cde.config.Parameters
+ import freechips.rocketchip.subsystem.CacheBlockBytes
+ import freechips.rocketchip.tile.HasCoreParameters
+diff --git a/src/main/scala/rocket/DCache.scala b/src/main/scala/rocket/DCache.scala
+index 308392aca..66aa0715f 100644
+--- a/src/main/scala/rocket/DCache.scala
++++ b/src/main/scala/rocket/DCache.scala
+@@ -561,7 +561,7 @@ class DCacheModule(outer: DCache) extends HellaCacheModule(outer) {
+   val put     = edge.Put(a_source, access_address, a_size, a_data)._2
+   val putpartial = edge.Put(a_source, access_address, a_size, a_data, a_mask)._2
+   val atomics = if (edge.manager.anySupportLogical) {
+-    MuxLookup(s2_req.cmd, WireDefault(0.U.asTypeOf(new TLBundleA(edge.bundle))), Array(
++    MuxLookup(s2_req.cmd, WireDefault(0.U.asTypeOf(new TLBundleA(edge.bundle))))(Array(
+       M_XA_SWAP -> edge.Logical(a_source, access_address, a_size, a_data, TLAtomics.SWAP)._2,
+       M_XA_XOR  -> edge.Logical(a_source, access_address, a_size, a_data, TLAtomics.XOR) ._2,
+       M_XA_OR   -> edge.Logical(a_source, access_address, a_size, a_data, TLAtomics.OR)  ._2,
+diff --git a/src/main/scala/rocket/NBDcache.scala b/src/main/scala/rocket/NBDcache.scala
+index f9161dd5d..510fe1f5e 100644
+--- a/src/main/scala/rocket/NBDcache.scala
++++ b/src/main/scala/rocket/NBDcache.scala
+@@ -82,7 +82,7 @@ class IOMSHR(id: Int)(implicit edge: TLEdgeOut, p: Parameters) extends L1HellaCa
+   val get     = edge.Get(a_source, a_address, a_size)._2
+   val put     = edge.Put(a_source, a_address, a_size, a_data)._2
+   val atomics = if (edge.manager.anySupportLogical) {
+-    MuxLookup(req.cmd, (0.U).asTypeOf(new TLBundleA(edge.bundle)), Array(
++    MuxLookup(req.cmd, (0.U).asTypeOf(new TLBundleA(edge.bundle)))(Array(
+       M_XA_SWAP -> edge.Logical(a_source, a_address, a_size, a_data, TLAtomics.SWAP)._2,
+       M_XA_XOR  -> edge.Logical(a_source, a_address, a_size, a_data, TLAtomics.XOR) ._2,
+       M_XA_OR   -> edge.Logical(a_source, a_address, a_size, a_data, TLAtomics.OR)  ._2,
+diff --git a/src/main/scala/rocket/RocketCore.scala b/src/main/scala/rocket/RocketCore.scala
+index 65f8c7323..62c9486da 100644
+--- a/src/main/scala/rocket/RocketCore.scala
++++ b/src/main/scala/rocket/RocketCore.scala
+@@ -384,10 +384,10 @@ class Rocket(tile: RocketTile)(implicit p: Parameters) extends CoreModule()(p)
+   val ex_rs = for (i <- 0 until id_raddr.size)
+     yield Mux(ex_reg_rs_bypass(i), bypass_mux(ex_reg_rs_lsb(i)), Cat(ex_reg_rs_msb(i), ex_reg_rs_lsb(i)))
+   val ex_imm = ImmGen(ex_ctrl.sel_imm, ex_reg_inst)
+-  val ex_op1 = MuxLookup(ex_ctrl.sel_alu1, 0.S, Seq(
++  val ex_op1 = MuxLookup(ex_ctrl.sel_alu1, 0.S)(Seq(
+     A1_RS1 -> ex_rs(0).asSInt,
+     A1_PC -> ex_reg_pc.asSInt))
+-  val ex_op2 = MuxLookup(ex_ctrl.sel_alu2, 0.S, Seq(
++  val ex_op2 = MuxLookup(ex_ctrl.sel_alu2, 0.S)(Seq(
+     A2_RS2 -> ex_rs(1).asSInt,
+     A2_IMM -> ex_imm,
+     A2_SIZE -> Mux(ex_reg_rvc, 2.S, 4.S)))
+diff --git a/src/main/scala/rocket/ScratchpadSlavePort.scala b/src/main/scala/rocket/ScratchpadSlavePort.scala
+index c5b5632f5..998fe7e26 100644
+--- a/src/main/scala/rocket/ScratchpadSlavePort.scala
++++ b/src/main/scala/rocket/ScratchpadSlavePort.scala
+@@ -57,16 +57,16 @@ class ScratchpadSlavePort(address: Seq[AddressSet], coreDataBytes: Int, usingAto
+ 
+     def formCacheReq(a: TLBundleA) = {
+       val req = Wire(new HellaCacheReq)
+-      req.cmd := MuxLookup(a.opcode, M_XRD, Array(
++      req.cmd := MuxLookup(a.opcode, M_XRD)(Array(
+         TLMessages.PutFullData    -> M_XWR,
+         TLMessages.PutPartialData -> M_PWR,
+-        TLMessages.ArithmeticData -> MuxLookup(a.param, M_XRD, Array(
++        TLMessages.ArithmeticData -> MuxLookup(a.param, M_XRD)(Array(
+           TLAtomics.MIN           -> M_XA_MIN,
+           TLAtomics.MAX           -> M_XA_MAX,
+           TLAtomics.MINU          -> M_XA_MINU,
+           TLAtomics.MAXU          -> M_XA_MAXU,
+           TLAtomics.ADD           -> M_XA_ADD)),
+-        TLMessages.LogicalData    -> MuxLookup(a.param, M_XRD, Array(
++        TLMessages.LogicalData    -> MuxLookup(a.param, M_XRD)(Array(
+           TLAtomics.XOR           -> M_XA_XOR,
+           TLAtomics.OR            -> M_XA_OR,
+           TLAtomics.AND           -> M_XA_AND,
+diff --git a/src/main/scala/tilelink/AtomicAutomata.scala b/src/main/scala/tilelink/AtomicAutomata.scala
+index 3bf633db0..37211ba8f 100644
+--- a/src/main/scala/tilelink/AtomicAutomata.scala
++++ b/src/main/scala/tilelink/AtomicAutomata.scala
+@@ -178,7 +178,7 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
+             when (en) {
+               r.fifoId := a_fifoId
+               r.bits   := in.a.bits
+-              r.lut    := MuxLookup(in.a.bits.param(1, 0), 0.U(4.W), Array(
++              r.lut    := MuxLookup(in.a.bits.param(1, 0), 0.U(4.W))(Array(
+                 TLAtomics.AND  -> 0x8.U,
+                 TLAtomics.OR   -> 0xe.U,
+                 TLAtomics.XOR  -> 0x6.U,
+diff --git a/src/main/scala/tilelink/Edges.scala b/src/main/scala/tilelink/Edges.scala
+index 2c555c03a..2fcb23fc2 100644
+--- a/src/main/scala/tilelink/Edges.scala
++++ b/src/main/scala/tilelink/Edges.scala
+@@ -4,7 +4,6 @@ package freechips.rocketchip.tilelink
+ 
+ import chisel3._
+ import chisel3.util._
+-import chisel3.internal.sourceinfo.SourceInfo
+ import chisel3.experimental.SourceInfo
+ import org.chipsalliance.cde.config.Parameters
+ import freechips.rocketchip.util._
+@@ -274,17 +273,17 @@ class TLEdge(
+ 
+   // Does the request need T permissions to be executed?
+   def needT(a: TLBundleA): Bool = {
+-    val acq_needT = MuxLookup(a.param, WireDefault(Bool(), DontCare), Array(
++    val acq_needT = MuxLookup(a.param, WireDefault(Bool(), DontCare))(Array(
+       TLPermissions.NtoB -> false.B,
+       TLPermissions.NtoT -> true.B,
+       TLPermissions.BtoT -> true.B))
+-    MuxLookup(a.opcode, WireDefault(Bool(), DontCare), Array(
++    MuxLookup(a.opcode, WireDefault(Bool(), DontCare))(Array(
+       TLMessages.PutFullData    -> true.B,
+       TLMessages.PutPartialData -> true.B,
+       TLMessages.ArithmeticData -> true.B,
+       TLMessages.LogicalData    -> true.B,
+       TLMessages.Get            -> false.B,
+-      TLMessages.Hint           -> MuxLookup(a.param, WireDefault(Bool(), DontCare), Array(
++      TLMessages.Hint           -> MuxLookup(a.param, WireDefault(Bool(), DontCare))(Array(
+         TLHints.PREFETCH_READ   -> false.B,
+         TLHints.PREFETCH_WRITE  -> true.B)),
+       TLMessages.AcquireBlock   -> acq_needT,
+diff --git a/src/main/scala/tilelink/Fragmenter.scala b/src/main/scala/tilelink/Fragmenter.scala
+index 0aace162b..f522cacbe 100644
+--- a/src/main/scala/tilelink/Fragmenter.scala
++++ b/src/main/scala/tilelink/Fragmenter.scala
+@@ -275,7 +275,7 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean =
+         val maxLgHint        = Mux1H(find, maxLgHints)
+ 
+         val limit = if (alwaysMin) lgMinSize else
+-          MuxLookup(in_a.bits.opcode, lgMinSize, Array(
++          MuxLookup(in_a.bits.opcode, lgMinSize)(Array(
+             TLMessages.PutFullData    -> maxLgPutFull,
+             TLMessages.PutPartialData -> maxLgPutPartial,
+             TLMessages.ArithmeticData -> maxLgArithmetic,
+diff --git a/src/main/scala/tilelink/Fuzzer.scala b/src/main/scala/tilelink/Fuzzer.scala
+index 1b3ed7fee..878b4ae74 100644
+--- a/src/main/scala/tilelink/Fuzzer.scala
++++ b/src/main/scala/tilelink/Fuzzer.scala
+@@ -180,7 +180,7 @@ class TLFuzzer(
+     // Pick a specific message to try to send
+     val a_type_sel  = noiseMaker(3, inc, 0)
+ 
+-    val legal = legal_dest && MuxLookup(a_type_sel, glegal, Seq(
++    val legal = legal_dest && MuxLookup(a_type_sel, glegal)(Seq(
+       "b000".U -> glegal,
+       "b001".U -> (pflegal && !noModify.B),
+       "b010".U -> (pplegal && !noModify.B),
+@@ -188,7 +188,7 @@ class TLFuzzer(
+       "b100".U -> (llegal && !noModify.B),
+       "b101".U -> hlegal))
+ 
+-    val bits = MuxLookup(a_type_sel, gbits, Seq(
++    val bits = MuxLookup(a_type_sel, gbits)(Seq(
+       "b000".U -> gbits,
+       "b001".U -> pfbits,
+       "b010".U -> ppbits,
+diff --git a/src/main/scala/tilelink/Metadata.scala b/src/main/scala/tilelink/Metadata.scala
+index cbd0d8c50..7f4f2854c 100644
+--- a/src/main/scala/tilelink/Metadata.scala
++++ b/src/main/scala/tilelink/Metadata.scala
+@@ -81,7 +81,7 @@ class ClientMetadata extends Bundle {
+     import ClientStates._
+     val c = categorize(cmd)
+     //assert(c === rd || param === toT, "Client was expecting trunk permissions.")
+-    MuxLookup(Cat(c, param), Nothing, Seq(
++    MuxLookup(Cat(c, param), Nothing)(Seq(
+     //(effect param) -> (next)
+       Cat(rd, toB)   -> Branch,
+       Cat(rd, toT)   -> Trunk,
+@@ -137,7 +137,7 @@ class ClientMetadata extends Bundle {
+   private def cmdToPermCap(cmd: UInt): UInt = {
+     import MemoryOpCategories._
+     import TLPermissions._
+-    MuxLookup(cmd, toN, Seq(
++    MuxLookup(cmd, toN)(Seq(
+       M_FLUSH   -> toN,
+       M_PRODUCE -> toB,
+       M_CLEAN   -> toT))
+diff --git a/src/main/scala/util/RecordMap.scala b/src/main/scala/util/RecordMap.scala
+index 4dd6bc11a..fb2b22716 100644
+--- a/src/main/scala/util/RecordMap.scala
++++ b/src/main/scala/util/RecordMap.scala
+@@ -4,8 +4,8 @@ package freechips.rocketchip.util
+ 
+ import chisel3._
+ import scala.collection.immutable.ListMap
+-import chisel3.internal.requireIsChiselType
+-import chisel3.experimental.DataMirror.internal.chiselTypeClone
++import chisel3.experimental.requireIsChiselType
++import chisel3.reflect.DataMirror.internal.chiselTypeClone
+ 
+ final class RecordMap[T <: Data] (eltMap: ListMap[String, T])
+     extends Record {
+diff --git a/src/main/scala/util/TraceCoreInterface.scala b/src/main/scala/util/TraceCoreInterface.scala
+index 6f948e09d..fad9263a4 100644
+--- a/src/main/scala/util/TraceCoreInterface.scala
++++ b/src/main/scala/util/TraceCoreInterface.scala
+@@ -4,7 +4,6 @@
+ package freechips.rocketchip.util
+ 
+ import chisel3._
+-import chisel3.experimental.ChiselEnum
+ 
+ // Definitions for Trace core Interface defined in RISC-V Processor Trace Specification V1.0
+ object TraceItype extends ChiselEnum {
