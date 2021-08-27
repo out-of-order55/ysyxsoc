@@ -12,9 +12,8 @@ class ysyxSoCTop extends Module {
   val dut = LazyModule(new ysyxSoCFull)
   val mdut = Module(dut.module)
   mdut.dontTouchPorts()
-  mdut.cpu_mem := DontCare
-  mdut.cpu_mmio.foreach(_ := DontCare)
-  mdut.cpu_dma := DontCare
+  mdut.cpu_master := DontCare
+  mdut.cpu_slave := DontCare
   mdut.spi.foreach(_ := DontCare)
   mdut.uart.foreach(_ := DontCare)
 }
