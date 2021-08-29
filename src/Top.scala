@@ -15,7 +15,6 @@ class ysyxSoCTop extends Module {
   mdut.cpu_master := DontCare
   mdut.cpu_slave := DontCare
   mdut.uart.rx := true.B
-  mdut.spi.miso := true.B
 }
 
 object Elaborate extends App {
