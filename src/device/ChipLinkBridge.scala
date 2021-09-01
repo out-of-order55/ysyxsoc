@@ -19,8 +19,8 @@ object ChipLinkParam {
   // Must have a cacheable address sapce.
   val mem  = AddressSet(0xc0000000L, 0x40000000L - 1)
   val mmio = AddressSet(0x40000000L, 0x40000000L - 1)
-
   val allSpace = Seq(mem, mmio)
+  val idBits = 4
 }
 
 
@@ -57,7 +57,7 @@ trait CanHaveAXI4MasterMemPortForLinkTop { this: LinkTopBase =>
   private val portName = "axi4"
   private val device = new MemoryDevice
   private val cacheBlockBytes = 64
-  private val idBits = p(ExtMem).map(_.master.idBits).getOrElse(1)
+  private val idBits = ChipLinkParam.idBits
 
   val axi4MasterMemNode = AXI4SlaveNode(p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels, _) =>
     Seq.tabulate(nMemoryChannels) { channel =>
@@ -90,8 +90,8 @@ trait CanHaveAXI4SlavePortForLinkTop { this: LinkTopBase =>
   private val slavePortParamsOpt = p(ExtIn)
   private val portName = "slave_port_axi4_mem"
   private val fifoBits = 1
+  private val idBits = ChipLinkParam.idBits
 
-  private val idBits = 4
   val axi4SlaveNode = AXI4MasterNode(
     slavePortParamsOpt.map(params =>
       AXI4MasterPortParameters(
@@ -135,7 +135,7 @@ trait CanHaveAXI4MasterMMIOPortForLinkTop { this: LinkTopBase =>
     axi4MasterMMIONode := (AXI4Buffer()
       := AXI4UserYanker()
       := AXI4Deinterleaver(64 /* blockBytes, literal OK? */)
-      := AXI4IdIndexer(params.idBits)
+      := AXI4IdIndexer(ChipLinkParam.idBits)
       := TLToAXI4()) := mbus
   }
 
