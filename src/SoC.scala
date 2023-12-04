@@ -24,11 +24,11 @@ object AXI4SlaveNodeGenerator {
 }
 
 class ysyxSoCASIC(implicit p: Parameters) extends LazyModule {
-  val chipMaster = LazyModule(new ChipLinkMaster)
   val xbar = AXI4Xbar()
   val apbxbar = LazyModule(new APBFanout).node
   val cpu = LazyModule(new CPU(idBits = ChipLinkParam.idBits))
-  val chiplinkNode = AXI4SlaveNodeGenerator(p(ExtBus), ChipLinkParam.allSpace)
+  val chipMaster = if (Config.hasChipLink) Some(LazyModule(new ChipLinkMaster)) else None
+  val chiplinkNode = if (Config.hasChipLink) Some(AXI4SlaveNodeGenerator(p(ExtBus), ChipLinkParam.allSpace)) else None
 
   val luart = LazyModule(new APBUart16550(AddressSet.misaligned(0x10000000, 0x1000)))
   val lspi  = LazyModule(new APBSPI(
@@ -39,7 +39,8 @@ class ysyxSoCASIC(implicit p: Parameters) extends LazyModule {
   val sramNode = AXI4RAM(AddressSet.misaligned(0x0f000000, 0x2000).head, false, true, 8, None, Nil, false)
 
   List(lspi.node, luart.node).map(_ := apbxbar)
-  List(chiplinkNode, apbxbar := AXI4ToAPB(), lmrom.node, sramNode).map(_ := xbar)
+  List(apbxbar := AXI4ToAPB(), lmrom.node, sramNode).map(_ := xbar)
+  if (Config.hasChipLink) chiplinkNode.get := xbar
   xbar := cpu.masterNode
 
   override lazy val module = new Impl
@@ -48,19 +49,23 @@ class ysyxSoCASIC(implicit p: Parameters) extends LazyModule {
     // to initialize some async modules before accept any requests from cpu
     cpu.module.reset := SynchronizerShiftReg(reset.asBool, 10) || reset.asBool
 
-    // connect chiplink slave interface to crossbar
-    (chipMaster.slave zip chiplinkNode.in) foreach { case (io, (bundle, _)) => io <> bundle }
+    val fpga_io = if (Config.hasChipLink) Some(IO(chiselTypeOf(chipMaster.get.module.fpga_io))) else None
+    if (Config.hasChipLink) {
+      // connect chiplink slave interface to crossbar
+      (chipMaster.get.slave zip chiplinkNode.get.in) foreach { case (io, (bundle, _)) => io <> bundle }
 
-    // connect chiplink dma interface to cpu
-    cpu.module.slave <> chipMaster.master_mem(0)
+      // connect chiplink dma interface to cpu
+      cpu.module.slave <> chipMaster.get.master_mem(0)
+
+      // expose chiplink fpga I/O interface as ports
+      fpga_io.get <> chipMaster.get.module.fpga_io
+    } else {
+      cpu.module.slave := DontCare
+    }
 
     // connect interrupt signal to cpu
     val intr_from_chipSlave = IO(Input(Bool()))
     cpu.module.interrupt := intr_from_chipSlave
-
-    // expose chiplink fpga I/O interface as ports
-    val fpga_io = IO(chiselTypeOf(chipMaster.module.fpga_io))
-    fpga_io <> chipMaster.module.fpga_io
 
     // expose spi and uart slave interface as ports
     val spi = IO(chiselTypeOf(lspi.module.spi_bundle))
@@ -75,26 +80,30 @@ class ysyxSoCFPGA(implicit p: Parameters) extends ChipLinkSlave
 
 class ysyxSoCFull(implicit p: Parameters) extends LazyModule {
   val asic = LazyModule(new ysyxSoCASIC)
+  ElaborationArtefacts.add("graphml", graphML)
 
   override lazy val module = new Impl
   class Impl extends LazyModuleImp(this) with DontTouch {
     val masic = asic.module
-    masic.dontTouchPorts()
-    val fpga = LazyModule(new ysyxSoCFPGA)
-    val mfpga = Module(fpga.module)
 
-    masic.fpga_io.b2c <> mfpga.fpga_io.c2b
-    mfpga.fpga_io.b2c <> masic.fpga_io.c2b
+    if (Config.hasChipLink) {
+      val fpga = LazyModule(new ysyxSoCFPGA)
+      val mfpga = Module(fpga.module)
+      masic.dontTouchPorts()
 
-    (fpga.master_mem zip fpga.axi4MasterMemNode.in).map { case (io, (_, edge)) =>
-      val mem = LazyModule(new SimAXIMem(edge,
-        base = ChipLinkParam.mem.base, size = ChipLinkParam.mem.mask + 1))
-      Module(mem.module)
-      mem.io_axi4.head <> io
+      masic.fpga_io.get.b2c <> mfpga.fpga_io.c2b
+      mfpga.fpga_io.b2c <> masic.fpga_io.get.c2b
+
+      (fpga.master_mem zip fpga.axi4MasterMemNode.in).map { case (io, (_, edge)) =>
+        val mem = LazyModule(new SimAXIMem(edge,
+          base = ChipLinkParam.mem.base, size = ChipLinkParam.mem.mask + 1))
+        Module(mem.module)
+        mem.io_axi4.head <> io
+      }
+
+      fpga.master_mmio.map(_ := DontCare)
+      fpga.slave.map(_ := DontCare)
     }
-
-    fpga.master_mmio.map(_ := DontCare)
-    fpga.slave.map(_ := DontCare)
 
     masic.intr_from_chipSlave := false.B
 
