@@ -16,6 +16,7 @@ class ysyxSoCTop extends Module {
   val dut = LazyModule(new ysyxSoCFull)
   val mdut = Module(dut.module)
   mdut.dontTouchPorts()
+  mdut.externalPins := DontCare
 }
 
 object Elaborate extends App {
