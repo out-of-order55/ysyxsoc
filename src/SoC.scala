@@ -121,7 +121,6 @@ class ysyxSoCFull(implicit p: Parameters) extends LazyModule {
     }
 
     masic.intr_from_chipSlave := false.B
-    masic.uart.rx := false.B
 
     val flash = Module(new flash)
     flash.io <> masic.spi
@@ -140,9 +139,11 @@ class ysyxSoCFull(implicit p: Parameters) extends LazyModule {
       val gpio = chiselTypeOf(masic.gpio)
       val ps2 = chiselTypeOf(masic.ps2)
       val vga = chiselTypeOf(masic.vga)
+      val uart = chiselTypeOf(masic.uart)
     })
     externalPins.gpio <> masic.gpio
     externalPins.ps2 <> masic.ps2
     externalPins.vga <> masic.vga
+    externalPins.uart <> masic.uart
   }
 }
