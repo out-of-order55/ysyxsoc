@@ -50,7 +50,7 @@ class ysyxSoCASIC(implicit p: Parameters) extends LazyModule {
   List(lspi.node, luart.node, lpsram.node, lgpio.node, lkeyboard.node, lvga.node).map(_ := apbxbar)
   List(apbxbar := APBDelayer() := AXI4ToAPB(), lmrom.node, sramNode).map(_ := xbar2)
   xbar2 := AXI4UserYanker(Some(1)) := AXI4Fragmenter() := xbar
-  if (Config.sdramUseAXI) lsdram_axi.get.node := xbar
+  if (Config.sdramUseAXI) lsdram_axi.get.node := ysyx.AXI4Delayer() := xbar
   else                    lsdram_apb.get.node := apbxbar
   if (Config.hasChipLink) chiplinkNode.get := xbar
   xbar := cpu.masterNode
