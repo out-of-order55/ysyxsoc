@@ -66,10 +66,15 @@ class AXI4SDRAM(address: Seq[AddressSet])(implicit p: Parameters) extends LazyMo
     val (in, _) = node.in(0)
     val sdram_bundle = IO(new SDRAMIO)
 
+    val converter = Module(new AXI4DataWidthConverter64to32)
+    converter.io.clock := clock
+    converter.io.reset := reset.asBool
+    converter.io.in <> in
+
     val msdram = Module(new sdram_top_axi)
     msdram.io.clock := clock
     msdram.io.reset := reset.asBool
-    msdram.io.in <> in
+    msdram.io.in <> converter.io.out
     sdram_bundle <> msdram.io.sdram
   }
 }
