@@ -62,5 +62,37 @@ module AXI4DataWidthConverter64to32(
   input  [3:0]  out_bid,
   input  [1:0]  out_bresp
 );
+  assign in_arready  = out_arready;
+  assign out_arvalid = in_arvalid;
+  assign out_arid    = in_arid;
+  assign out_arlen   = in_arlen;
+  assign out_arsize  = in_arsize;
+  assign out_arburst = in_arburst;
+  assign out_rready  = in_rready;
+  assign in_rvalid   = out_rvalid;
+  assign in_rid      = out_rid;
+  assign in_rresp    = out_rresp;
+  assign in_rlast    = out_rlast;
+  assign out_araddr  = in_araddr;
+  assign in_rdata    = {out_rdata,out_rdata};
+
+  assign in_awready  = out_awready;
+  assign out_awvalid = in_awvalid;
+  assign out_awid    = in_awid;
+
+  assign out_awlen   = in_awlen;
+  assign out_awsize  = in_awsize;
+  assign out_awburst = in_awburst;
+  assign in_wready   = out_wready;
+  assign out_wvalid  = in_wvalid;
+  assign out_wlast   = in_wlast;
+  assign out_bready  = in_bready;
+  assign in_bvalid   = out_bvalid;
+  assign in_bid      = out_bid;
+  assign in_bresp    = out_bresp;
+
+  assign out_awaddr  = in_awaddr;//(in_wstrb[3:0]==4'b0)?{in_awaddr[31:3],3'b100}:{in_awaddr[31:3],3'b000};
+  assign out_wdata   = (in_wstrb[3:0]==4'b0)?in_wdata[63:32]:in_wdata[31:0];
+  assign out_wstrb   = (in_wstrb[3:0]==4'b0)?in_wstrb[7:4]:in_wstrb[3:0];
 
 endmodule
